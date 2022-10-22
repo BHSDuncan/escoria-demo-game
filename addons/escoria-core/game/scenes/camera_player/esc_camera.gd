@@ -112,8 +112,9 @@ func set_target(p_target, p_time : float = 0.0):
 		self,
 		"Current camera position = %s." % str(self.global_position)
 	)
-
+	
 	if p_time == 0.0:
+		_target = _clamp_to_limits(_target)
 		self.global_position = _target
 	else:
 		if _tween.is_active():
@@ -126,6 +127,11 @@ func set_target(p_target, p_time : float = 0.0):
 			)
 			_tween.emit_signal("tween_completed")
 
+		set_drag_margin_enabled(false, false)
+
+		_target = _clamp_to_limits(_target)
+		self.global_position = _clamp_to_limits(self.global_position)
+		
 		_tween.interpolate_property(
 			self,
 			"global_position",
@@ -275,3 +281,89 @@ func shift(p_target: Vector2, p_time: float, p_type: int):
 
 func _target_reached():
 	_tween.stop_all()
+	set_drag_margin_enabled(true, true)
+
+
+# Ensures that to_clamp doesn't go outside of the pre-set viewing limits.
+func _clamp_to_limits(to_clamp: Vector2) -> Vector2:
+	var clamped_value: Vector2 = to_clamp
+	var viewport_rect: Rect2 = get_viewport_rect()
+
+#	if clamped_value.x < limit_left:
+#		clamped_value.x = limit_left
+#	elif clamped_value.x > limit_right:
+#		clamped_value.x = limit_right
+#
+#	if clamped_value.y < limit_top:
+#		clamped_value.y = limit_top
+#	elif clamped_value.y > limit_bottom:
+#		clamped_value.y = limit_bottom
+
+	if clamped_value.x < limit_left + viewport_rect.size.x * 0.5:
+		clamped_value.x = limit_left + viewport_rect.size.x * 0.5
+	elif clamped_value.x > limit_right - viewport_rect.size.x * 0.5:
+		clamped_value.x = limit_right - viewport_rect.size.x * 0.5
+
+	if clamped_value.y < limit_top + viewport_rect.size.y * 0.5:
+		clamped_value.y = limit_top + viewport_rect.size.y * 0.5
+	elif clamped_value.y > limit_bottom - viewport_rect.size.y * 0.5:
+		clamped_value.y = limit_bottom - viewport_rect.size.y * 0.5
+		
+	clamped_value = _compensate_for_drag_margin(clamped_value)
+
+#	print(viewport_rect.size)
+#
+#	if drag_margin_h_enabled:
+#		pass
+#	else:
+#		clamped_value.x = min(clamped_value.x, clamped_value.x + viewport_rect.size.x * 0.5 * zoom.x * drag_margin_left)
+#		clamped_value.x = max(clamped_value.x, clamped_value.x - viewport_rect.size.x * 0.5 * zoom.x * drag_margin_right)
+#
+#	if not drag_margin_h_enabled:
+#		clamped_value.y = min(clamped_value.y, clamped_value.y + viewport_rect.size.y * 0.5 * zoom.y * drag_margin_top)
+#		clamped_value.y = max(clamped_value.y, clamped_value.y - viewport_rect.size.y * 0.5 * zoom.y * drag_margin_bottom)
+
+#	if clamped_value.x < limit_left + viewport_rect.size.x * 0.5 * zoom.x * drag_margin_left:
+#		clamped_value.x = limit_left + viewport_rect.size.x * 0.5 * zoom.x * drag_margin_left
+#	elif clamped_value.x > limit_right - viewport_rect.size.x * 0.5 * zoom.x * drag_margin_right:
+#		clamped_value.x = limit_right - viewport_rect.size.x * 0.5 * zoom.x * drag_margin_right
+#
+#	if clamped_value.y < limit_top + viewport_rect.size.y * 0.5 * zoom.y * drag_margin_top:
+#		clamped_value.y = limit_top + viewport_rect.size.y * 0.5 * zoom.y * drag_margin_top
+#	elif clamped_value.y > limit_bottom - viewport_rect.size.y * 0.5 * zoom.y * drag_margin_bottom:
+#		clamped_value.y = limit_bottom - viewport_rect.size.y * 0.5 * zoom.y * drag_margin_bottom
+
+	#print(get_global_transform().get_origin())
+	#clamped_value.x = 
+
+#	if drag_margin_h_enabled:
+#		if clamped_value.x < limit_left + viewport_rect.size.x * 0.5:
+#			clamped_value.x = limit_left + viewport_rect.size.x * 0.5
+#		elif clamped_value.x > limit_right - viewport_rect.size.x * 0.5:
+#			clamped_value.x = limit_right - viewport_rect.size.x * 0.5 + viewport_rect.size.x * 0.5 * drag_margin_right
+#
+#	if drag_margin_v_enabled:
+#		if clamped_value.y < limit_top + viewport_rect.size.y * 0.5:
+#			clamped_value.y = limit_top + viewport_rect.size.y * 0.5
+#		elif clamped_value.y > limit_bottom - viewport_rect.size.y * 0.5:
+#			clamped_value.y = limit_bottom - viewport_rect.size.y * 0.5 + viewport_rect.size.y * 0.5 * drag_margin_bottom
+
+	return clamped_value
+
+func _compensate_for_drag_margin(p_position: Vector2) -> Vector2:
+	var ret_position: Vector2 = p_position
+	var viewport_rect: Rect2 = get_viewport_rect()
+
+	if drag_margin_h_enabled:
+		if ret_position.x < self.global_position.x:
+			ret_position.x = ret_position.x - viewport_rect.size.x * 0.5 * drag_margin_left
+		elif ret_position.x > self.global_position.x:
+			ret_position.x = ret_position.x + viewport_rect.size.x * 0.5 * drag_margin_right
+
+	if drag_margin_v_enabled:
+		if ret_position.y < self.global_position.y:
+			ret_position.y = ret_position.y - viewport_rect.size.y * 0.5 * drag_margin_top
+		elif ret_position.y > self.global_position.y:
+			ret_position.y = ret_position.y + viewport_rect.size.y * 0.5 * drag_margin_bottom
+
+	return ret_position
