@@ -3,6 +3,13 @@ extends Camera2D
 class_name ESCCamera
 
 
+enum Compensation {
+	NONE,
+	ADDED,
+	SUBTRACTED
+}
+
+
 # Reference to the tween node for animating camera movements
 var _tween: Tween
 
@@ -14,6 +21,9 @@ var _follow_target: Node = null
 
 # Target zoom of the camera
 var _zoom_target: Vector2
+
+var _global_pos_x_compensation = Compensation.NONE
+var _global_pos_y_compensation = Compensation.NONE
 
 
 # Prepare the tween
@@ -115,6 +125,8 @@ func set_target(p_target, p_time : float = 0.0):
 	
 	if p_time == 0.0:
 		_target = _clamp_to_limits(_target)
+		_target = _compensate_for_drag_margin_relative(_target, true)
+		print(_target)
 		self.global_position = _target
 	else:
 		if _tween.is_active():
@@ -130,7 +142,8 @@ func set_target(p_target, p_time : float = 0.0):
 		set_drag_margin_enabled(false, false)
 
 		_target = _clamp_to_limits(_target)
-		self.global_position = _clamp_to_limits(self.global_position)
+		_convert_current_global_pos_for_drag_margin()
+		print(self.global_position)
 		
 		_tween.interpolate_property(
 			self,
@@ -309,7 +322,7 @@ func _clamp_to_limits(to_clamp: Vector2) -> Vector2:
 	elif clamped_value.y > limit_bottom - viewport_rect.size.y * 0.5:
 		clamped_value.y = limit_bottom - viewport_rect.size.y * 0.5
 		
-	clamped_value = _compensate_for_drag_margin(clamped_value)
+	#clamped_value = _compensate_for_drag_margin_relative(clamped_value)
 
 #	print(viewport_rect.size)
 #
@@ -350,20 +363,88 @@ func _clamp_to_limits(to_clamp: Vector2) -> Vector2:
 
 	return clamped_value
 
-func _compensate_for_drag_margin(p_position: Vector2) -> Vector2:
+func _compensate_for_drag_margin_relative(p_position: Vector2, for_global_pos: bool = false) -> Vector2:
 	var ret_position: Vector2 = p_position
 	var viewport_rect: Rect2 = get_viewport_rect()
 
 	if drag_margin_h_enabled:
 		if ret_position.x < self.global_position.x:
 			ret_position.x = ret_position.x - viewport_rect.size.x * 0.5 * drag_margin_left
-		elif ret_position.x > self.global_position.x:
+			
+			if for_global_pos:
+				_global_pos_x_compensation = Compensation.SUBTRACTED
+		else:
 			ret_position.x = ret_position.x + viewport_rect.size.x * 0.5 * drag_margin_right
+
+			if for_global_pos:
+				_global_pos_x_compensation = Compensation.ADDED
+	else:		
+		if ret_position.x < self.global_position.x:
+			ret_position.x = ret_position.x + viewport_rect.size.x * 0.5 * drag_margin_left
+			
+			if for_global_pos:
+				_global_pos_x_compensation = Compensation.ADDED
+		else:
+			ret_position.x = ret_position.x - viewport_rect.size.x * 0.5 * drag_margin_right
+
+			if for_global_pos:
+				_global_pos_x_compensation = Compensation.SUBTRACTED
 
 	if drag_margin_v_enabled:
 		if ret_position.y < self.global_position.y:
 			ret_position.y = ret_position.y - viewport_rect.size.y * 0.5 * drag_margin_top
-		elif ret_position.y > self.global_position.y:
+			
+			if for_global_pos:
+				_global_pos_y_compensation = Compensation.SUBTRACTED
+		else:
 			ret_position.y = ret_position.y + viewport_rect.size.y * 0.5 * drag_margin_bottom
 
+			if for_global_pos:
+				_global_pos_y_compensation = Compensation.ADDED
+	else:
+		if ret_position.y < self.global_position.y:
+			ret_position.y = ret_position.y + viewport_rect.size.y * 0.5 * drag_margin_top
+			
+			if for_global_pos:
+				_global_pos_y_compensation = Compensation.ADDED
+		else:
+			ret_position.y = ret_position.y - viewport_rect.size.y * 0.5 * drag_margin_bottom
+
+			if for_global_pos:
+				_global_pos_y_compensation = Compensation.SUBTRACTED
+
 	return ret_position
+
+
+func _convert_current_global_pos_for_drag_margin() -> void:
+	var ret_position: Vector2 = self.global_position
+	var viewport_rect: Rect2 = get_viewport_rect()
+
+	if drag_margin_h_enabled:
+		if _global_pos_x_compensation == Compensation.ADDED:
+			ret_position.x = ret_position.x - viewport_rect.size.x * 0.5 * drag_margin_left
+		elif _global_pos_x_compensation == Compensation.SUBTRACTED:
+			ret_position.x = ret_position.x + viewport_rect.size.x * 0.5 * drag_margin_right
+	else:
+		if _global_pos_x_compensation == Compensation.ADDED:
+			ret_position.x = ret_position.x - viewport_rect.size.x * 0.5 * drag_margin_right
+		elif _global_pos_x_compensation == Compensation.SUBTRACTED:
+			ret_position.x = ret_position.x + viewport_rect.size.x * 0.5 * drag_margin_left
+
+	if drag_margin_v_enabled:
+		if _global_pos_y_compensation == Compensation.ADDED:
+			ret_position.y = ret_position.y - viewport_rect.size.y * 0.5 * drag_margin_top
+		elif _global_pos_y_compensation == Compensation.SUBTRACTED:
+			ret_position.y = ret_position.y + viewport_rect.size.y * 0.5 * drag_margin_bottom
+	else:
+		if _global_pos_y_compensation == Compensation.ADDED:
+			ret_position.y = ret_position.y - viewport_rect.size.y * 0.5 * drag_margin_bottom
+		elif _global_pos_y_compensation == Compensation.SUBTRACTED:
+			ret_position.y = ret_position.y + viewport_rect.size.y * 0.5 * drag_margin_top
+
+	_global_pos_x_compensation = Compensation.NONE
+	_global_pos_y_compensation = Compensation.NONE
+
+	self.global_position = ret_position
+
+
