@@ -53,7 +53,9 @@ func register_reserved_globals() -> void:
 # - enable_automatic_transitions: Whether to play the transition between rooms
 #	automatically or to leave the responsibility to the developer.
 func change_scene(room_path: String, enable_automatic_transitions: bool) -> void:
-	if escoria.main and escoria.main.current_scene and escoria.main.current_scene.filename == room_path:
+	if escoria.main \
+			and escoria.main.current_scene \
+			and escoria.main.current_scene.filename == room_path:
 		escoria.logger.info(
 			self,
 			"Attempting to change scene to same scene as the current scene. Aborting."
@@ -117,10 +119,7 @@ func change_scene(room_path: String, enable_automatic_transitions: bool) -> void
 		if enable_automatic_transitions \
 				and escoria.event_manager.get_running_event(
 					escoria.event_manager.CHANNEL_FRONT
-				) != null \
-				and escoria.event_manager.get_running_event(
-					escoria.event_manager.CHANNEL_FRONT
-				).get_event_name() == escoria.event_manager.EVENT_ROOM_SELECTOR:
+				) != null:
 			room_scene.enabled_automatic_transitions = true
 		else:
 			room_scene.enabled_automatic_transitions = enable_automatic_transitions
@@ -194,7 +193,7 @@ func init_room(room: ESCRoom) -> void:
 			escoria.main.set_scene(room)
 
 	# Register all navigationpolygons in the terrain
-	if escoria.room_terrain != null:
+	if escoria.room_terrain != null and is_instance_valid(escoria.room_terrain):
 		for n in escoria.room_terrain.get_children_navpolys():
 			escoria.object_manager.register_terrain(
 				ESCObject.new(
